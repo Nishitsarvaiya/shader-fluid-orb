@@ -8,10 +8,23 @@ import {
 	ShaderMaterial,
 	Mesh,
 	DoubleSide,
+	RawShaderMaterial,
+	Vector2,
+	Raycaster,
+	Clock,
+	Vector3,
+	WebGLRenderTarget,
+	RGBAFormat,
+	RepeatWrapping,
+	SphereGeometry,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/Addons";
-import vertexShader from "./shaders/vertex.glsl";
-import fragmentShader from "./shaders/fragment.glsl";
+import intVertex from "./shaders/interaction/vertex.glsl";
+import simVertex from "./shaders/simulation/vertex.glsl";
+import renVertex from "./shaders/rendering/vertex.glsl";
+import intFragment from "./shaders/interaction/fragment.glsl";
+import simFragment from "./shaders/simulation/fragment.glsl";
+import renFragment from "./shaders/rendering/fragment.glsl";
 
 export default class App {
 	constructor() {
@@ -23,6 +36,8 @@ export default class App {
 		// viewport
 		this.width = window.innerWidth;
 		this.height = window.innerHeight;
+		this.mouse = new Vector2(-1, -1);
+		this.normalisedMouse = new Vector2(-1, -1);
 
 		this.createComponents();
 		this.resize();
@@ -35,33 +50,24 @@ export default class App {
 		this.createCamera();
 		this.createControls();
 		this.createScene();
+		this.createRaycaster();
 		this.createObjects();
+		this.createOrb();
 	}
 
 	createRenderer() {
 		// renderer
 		this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
 		this.canvas = this.renderer.domElement;
-		document.getElementById("app").appendChild(this.canvas);
-		this.renderer.setClearColor(0x242424, 1);
-		this.renderer.setPixelRatio(window.devicePixelRatio);
+		this.renderer.setClearColor(0x1d1d1d, 1);
 		this.renderer.setSize(this.width, this.height);
+		this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+		document.getElementById("app").appendChild(this.canvas);
 	}
 
 	createCamera() {
 		// camera
-		this.cameraProps = {
-			fov: 75,
-			aspectRatio: this.width / this.height,
-			near: 0.1,
-			far: 100,
-		};
-		this.camera = new PerspectiveCamera(
-			this.cameraProps.fov,
-			this.cameraProps.aspectRatio,
-			this.cameraProps.near,
-			this.cameraProps.far
-		);
+		this.camera = new PerspectiveCamera(60, this.width / this.height, 0.1, 2);
 		this.camera.position.set(0, 0, 2.5);
 	}
 
@@ -75,7 +81,16 @@ export default class App {
 	createScene() {
 		// scene
 		this.scene = new Scene();
-		this.scene.background = new Color(0x242424);
+		this.scene.background = null;
+		this.scene.environment = null;
+		this.scene.fog = null;
+		this.scene.backgroundBlurriness = 0;
+		this.scene.backgroundIntensity = 1;
+		this.scene.overrideMaterial = null;
+	}
+
+	createRaycaster() {
+		this.raycaster = new Raycaster();
 	}
 
 	createLights() {
@@ -94,25 +109,129 @@ export default class App {
 	}
 
 	createObjects() {
-		this.planeProps = {
-			width: 2,
-			height: 2,
-			widthSegments: 36,
-			heightSegments: 36,
-		};
-		this.geometry = new PlaneGeometry(
-			this.planeProps.width,
-			this.planeProps.height,
-			this.planeProps.widthSegments,
-			this.planeProps.heightSegments
-		);
-		this.material = new ShaderMaterial({
+		this.clock = new Clock();
+		this.createMaterials();
+	}
+
+	createMaterials() {
+		this.intMaterial = new RawShaderMaterial({
 			side: DoubleSide,
-			vertexShader: vertexShader,
-			fragmentShader: fragmentShader,
+			vertexShader: intVertex,
+			fragmentShader: intFragment,
+			uniforms: {
+				time: {
+					value: 0,
+				},
+				texture: {
+					value: null,
+				},
+				center: {
+					value: new Vector2(),
+				},
+				center2: {
+					value: new Vector2(),
+				},
+				radius: {
+					value: 0,
+				},
+				strength: {
+					value: 0,
+				},
+				noiseSpeed: {
+					value: 0,
+				},
+				noiseAmplitude: {
+					value: 0,
+				},
+				noiseFrequency: {
+					value: 0,
+				},
+				mouseDown: {
+					value: false,
+				},
+			},
 		});
-		this.plane = new Mesh(this.geometry, this.material);
-		this.scene.add(this.plane);
+		this.simMaterial = new RawShaderMaterial({
+			side: DoubleSide,
+			vertexShader: simVertex,
+			fragmentShader: simFragment,
+			uniforms: {
+				texture: {
+					value: null,
+				},
+				size: {
+					value: new Vector2(0, 0),
+				},
+			},
+		});
+		this.renMaterial = new RawShaderMaterial({
+			side: DoubleSide,
+			vertexShader: intVertex,
+			fragmentShader: intFragment,
+			uniforms: {
+				texture: {
+					value: null,
+				},
+				matcapTexture: {
+					value: null,
+				},
+				matcapTexture2: {
+					value: null,
+				},
+				textureMix: {
+					value: 0,
+				},
+				size: {
+					value: new Vector2(),
+				},
+				eye: {
+					value: new Vector3(),
+				},
+				lightDirection: {
+					value: new Vector3(),
+				},
+				angle: {
+					value: 0,
+				},
+			},
+		});
+	}
+
+	createOrb() {
+		this.fbos = [256, 128].map(
+			(e) =>
+				new WebGLRenderTarget(e, e, {
+					format: RGBAFormat,
+					wrapS: RepeatWrapping,
+					wrapT: RepeatWrapping,
+				})
+		);
+		this.fboScene = new Scene();
+		this.fboPlane = new Mesh(new PlaneGeometry(2, 2));
+		this.intMaterial.uniforms.center.value.set(-1, -1);
+		this.intMaterial.uniforms.center2.value.set(-1, -1);
+		this.intMaterial.uniforms.radius.value = 0.05;
+		this.intMaterial.uniforms.strength.value = 0.05;
+		this.intMaterial.uniforms.noiseSpeed.value = 0.1;
+		this.intMaterial.uniforms.noiseAmplitude.value = 0.005;
+		this.intMaterial.uniforms.noiseFrequency.value = 3;
+		this.intMaterial.uniforms.texture.value = this.fbos[1].texture;
+		this.simMaterial.uniforms.texture.value = this.fbos[0].texture;
+		this.simMaterial.uniforms.size.value.set(this.fbos[0].width / 2, this.fbos[0].height / 2);
+		this.renMaterial.uniforms.texture.value = this.fbos[1].texture;
+		this.renMaterial.uniforms.size.value.set(this.fbos[1].width, this.fbos[1].height);
+		this.renMaterial.uniforms.eye.value.copy(this.camera.position).normalize();
+		this.scene.add(this.fboPlane);
+
+		this.sphere = new Mesh(new SphereGeometry(1, 156, 156, 0, Math.PI), this.renMaterial);
+		this.sphere.scale.setScalar(1);
+		this.scene.add(this.sphere);
+	}
+
+	addListeners() {
+		window.addEventListener("resize", this.resize);
+		window.addEventListener("mousedown", this.onMouseDown);
+		window.addEventListener("mousemove", this.onMouseMove);
 	}
 
 	resize() {
