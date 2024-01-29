@@ -48,7 +48,7 @@ void main() {
     vec3 yellow = vec3(0.988, 0.8, 0);
     float light = lambert(normal, lightDirection);
     float specularStrength = 0.025;
-    vec3 lightColor = magenta;
+    vec3 lightColor = white;
     vec3 viewDir = normalize(eye - vPosition);
     vec3 reflectDir = reflect(lightDirection, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 20.0);

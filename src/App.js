@@ -28,6 +28,8 @@ import renFragment from "./shaders/rendering/fragment.glsl";
 import renVertex from "./shaders/rendering/vertex.glsl";
 import simFragment from "./shaders/simulation/fragment.glsl";
 import simVertex from "./shaders/simulation/vertex.glsl";
+import GUI from "lil-gui";
+import gsap from "gsap";
 
 export default class App {
 	constructor() {
@@ -46,6 +48,10 @@ export default class App {
 		this.scale = 1;
 		this.textureIndex = 0;
 		this.textureTween = null;
+		this.config = {
+			background: "#f6f6f6",
+			orb: "colorful",
+		};
 
 		this.createComponents();
 	}
@@ -66,13 +72,14 @@ export default class App {
 			setTimeout(() => this.intMaterial.uniforms.center2.value.set(-1, -1), 10);
 		}, 200);
 		this.raf = window.requestAnimationFrame(() => this.update());
+		this.createGUI();
 	}
 
 	createRenderer() {
 		// renderer
 		this.renderer = new WebGLRenderer({ antialias: true, alpha: true });
 		this.canvas = this.renderer.domElement;
-		this.renderer.setClearColor(0x1d1d1d, 1);
+		this.renderer.setClearColor(this.config.background, 1);
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setPixelRatio(window.devicePixelRatio || 1);
 		document.getElementById("app").appendChild(this.canvas);
@@ -82,13 +89,6 @@ export default class App {
 		// camera
 		this.camera = new PerspectiveCamera(60, this.width / this.height, 0.1, 2);
 		this.camera.position.set(0, 0, 2.4);
-	}
-
-	createControls() {
-		// controls
-		this.controls = new OrbitControls(this.camera, this.canvas);
-		this.controls.enableDamping = true;
-		this.controls.update();
 	}
 
 	createScene() {
@@ -104,21 +104,6 @@ export default class App {
 
 	createRaycaster() {
 		this.raycaster = new CustomRayCaster();
-	}
-
-	createLights() {
-		// lights
-		this.lights = [];
-		this.lights[0] = new DirectionalLight(0xffffff, 5);
-		this.lights[1] = new DirectionalLight(0xffffff, 5);
-		this.lights[2] = new DirectionalLight(0xffffff, 5);
-		this.lights[0].position.set(0, 20, 0);
-		this.lights[1].position.set(10, 20, 10);
-		this.lights[2].position.set(-10, -20, -10);
-
-		this.scene.add(this.lights[0]);
-		this.scene.add(this.lights[1]);
-		this.scene.add(this.lights[2]);
 	}
 
 	createObjects() {
@@ -252,14 +237,14 @@ export default class App {
 		this.renMaterial.uniforms.eye.value.copy(this.camera.position).normalize();
 		this.fboScene.add(this.fboPlane);
 
-		this.sphere = new Mesh(new SphereGeometry(1, 64, 64, 0, Math.PI), this.renMaterial);
+		this.sphere = new Mesh(new SphereGeometry(1, 156, 156, 0, Math.PI), this.renMaterial);
 		this.sphere.scale.setScalar(this.scale);
+		this.setTexture(this.config.orb === "grayscale" ? "/texture-black.png" : "/texture.png");
 		this.scene.add(this.sphere);
-		this.setTexture();
 	}
 
-	setTexture() {
-		new TextureLoader().load("/texture.png", (texture) => {
+	setTexture(url) {
+		new TextureLoader().load(url, (texture) => {
 			// Check if the matcapTexture value is set in the rendering material
 			if (this.renMaterial.uniforms.matcapTexture.value) {
 				// If matcapTexture is already set, switch between two textures
@@ -281,16 +266,11 @@ export default class App {
 					this.textureTween.kill();
 				}
 				// Create a new tween to smoothly transition between textures
-				this.textureTween = new Tween({
-					from: n,
-					to: i,
-					duration: 0.3, // Duration of the tween animation
-					easing: "power3.out", // Easing function for the tween animation
-					onUpdate: (value) => {
-						// Update the textureMix uniform in the rendering material during tween animation
-						this.renMaterial.uniforms.textureMix.value = value;
-					},
-				});
+				this.textureTween = gsap.fromTo(
+					this.renMaterial.uniforms.textureMix,
+					{ value: n },
+					{ value: i, duration: 0.5, ease: "power3.out" }
+				);
 			} else {
 				// If matcapTexture value is not set, directly assign the loaded texture
 				this.renMaterial.uniforms.matcapTexture.value = texture;
@@ -356,12 +336,20 @@ export default class App {
 		window.addEventListener("mousemove", (e) => this.onMouseMove(e));
 	}
 
+	removeListeners() {
+		window.removeEventListener("resize", this.resize);
+		window.removeEventListener("mousedown", this.onMouseDown);
+		window.removeEventListener("mouseup", this.onMouseUp);
+		window.removeEventListener("mousemove", this.onMouseMove);
+	}
+
 	resize() {
 		this.width = window.innerWidth;
 		this.height = window.innerHeight;
 
 		this.renderer.setPixelRatio(window.devicePixelRatio);
 		this.renderer.setSize(this.width, this.height);
+		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
 	}
 
@@ -374,5 +362,30 @@ export default class App {
 		this.renderer.render(this.fboScene, this.camera);
 		this.renderer.setRenderTarget(null);
 		this.renderer.render(this.scene, this.camera);
+	}
+
+	createGUI() {
+		this.gui = new GUI();
+
+		this.gui
+			.addColor(this.config, "background")
+			.listen()
+			.onChange((v) => {
+				this.renderer.setClearColor(v, 1);
+			});
+
+		this.gui
+			.add(this.config, "orb", ["grayscale", "colorful"])
+			.listen()
+			.onChange((v) => {
+				this.setTexture(this.config.orb === "grayscale" ? "/texture-black.png" : "/texture.png");
+			});
+	}
+
+	dispose() {
+		this.clock.stop();
+		this.removeListeners();
+		window.clearInterval(this.intervalId);
+		window.cancelAnimationFrame(this.raf);
 	}
 }
