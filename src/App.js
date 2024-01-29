@@ -48,14 +48,12 @@ export default class App {
 		this.textureTween = null;
 
 		this.createComponents();
-
-		// window.addEventListener("resize", () => this.resize());
 	}
 
 	createComponents() {
 		this.createRenderer();
 		this.createCamera();
-		this.createControls();
+		// this.createControls();
 		this.createScene();
 		this.createRaycaster();
 		this.createObjects();
@@ -241,11 +239,11 @@ export default class App {
 		this.fboPlane = new Mesh(new PlaneGeometry(2, 2));
 		this.intMaterial.uniforms.center.value.set(-1, -1);
 		this.intMaterial.uniforms.center2.value.set(-1, -1);
-		this.intMaterial.uniforms.radius.value = 0.05;
-		this.intMaterial.uniforms.strength.value = 0.05;
+		this.intMaterial.uniforms.radius.value = 0.036;
+		this.intMaterial.uniforms.strength.value = 0.04;
 		this.intMaterial.uniforms.noiseSpeed.value = 0.1;
 		this.intMaterial.uniforms.noiseAmplitude.value = 0.005;
-		this.intMaterial.uniforms.noiseFrequency.value = 3;
+		this.intMaterial.uniforms.noiseFrequency.value = 8;
 		this.intMaterial.uniforms.texture.value = this.fbos[1].texture;
 		this.simMaterial.uniforms.texture.value = this.fbos[0].texture;
 		this.simMaterial.uniforms.size.value.set(this.fbos[0].width / 2, this.fbos[0].height / 2);
@@ -254,14 +252,14 @@ export default class App {
 		this.renMaterial.uniforms.eye.value.copy(this.camera.position).normalize();
 		this.fboScene.add(this.fboPlane);
 
-		this.sphere = new Mesh(new SphereGeometry(1, 156, 156, 0, Math.PI), this.renMaterial);
+		this.sphere = new Mesh(new SphereGeometry(1, 64, 64, 0, Math.PI), this.renMaterial);
 		this.sphere.scale.setScalar(this.scale);
 		this.scene.add(this.sphere);
 		this.setTexture();
 	}
 
 	setTexture() {
-		new TextureLoader().load("/texture.jpeg", (texture) => {
+		new TextureLoader().load("/texture.png", (texture) => {
 			// Check if the matcapTexture value is set in the rendering material
 			if (this.renMaterial.uniforms.matcapTexture.value) {
 				// If matcapTexture is already set, switch between two textures

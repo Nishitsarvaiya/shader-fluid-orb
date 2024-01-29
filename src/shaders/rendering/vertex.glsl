@@ -13,7 +13,7 @@ void main() {
     vUv = uv;
     vec4 data = texture2D(texture, uv);
     vec3 transformed = position;
-    transformed += normal * data.r;
+    transformed += normal * data.x * 0.7;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
     vPosition = gl_Position.xyz;
 }

@@ -48,10 +48,10 @@ void main() {
     vec3 yellow = vec3(0.988, 0.8, 0);
     float light = lambert(normal, lightDirection);
     float specularStrength = 0.025;
-    vec3 lightColor = cyan;
+    vec3 lightColor = magenta;
     vec3 viewDir = normalize(eye - vPosition);
     vec3 reflectDir = reflect(lightDirection, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 20.0);
     vec3 specular = specularStrength * spec * lightColor;
     vec2 rotatedUv = rotateUV(vUv, angle);
     vec3 color = mix(texture2D(matcapTexture, rotatedUv).rgb, texture2D(matcapTexture2, rotatedUv).rgb, textureMix);
