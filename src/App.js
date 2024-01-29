@@ -1,30 +1,33 @@
+import { Tween } from "gsap/gsap-core";
 import {
-	Color,
-	PerspectiveCamera,
-	Scene,
-	WebGLRenderer,
-	PlaneGeometry,
-	DirectionalLight,
-	ShaderMaterial,
-	Mesh,
-	DoubleSide,
-	RawShaderMaterial,
-	Vector2,
-	Raycaster,
 	Clock,
+	DirectionalLight,
+	DoubleSide,
+	FloatType,
+	HalfFloatType,
+	Mesh,
+	PerspectiveCamera,
+	PlaneGeometry,
+	RGBAFormat,
+	RawShaderMaterial,
+	RepeatWrapping,
+	Scene,
+	SphereGeometry,
+	TextureLoader,
+	Vector2,
 	Vector3,
 	WebGLRenderTarget,
-	RGBAFormat,
-	RepeatWrapping,
-	SphereGeometry,
+	WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/Addons";
-import intVertex from "./shaders/interaction/vertex.glsl";
-import simVertex from "./shaders/simulation/vertex.glsl";
-import renVertex from "./shaders/rendering/vertex.glsl";
+import { lerp, randomNumberInRange } from "./helpers";
+import CustomRayCaster from "./modules/CustomRayCaster";
 import intFragment from "./shaders/interaction/fragment.glsl";
-import simFragment from "./shaders/simulation/fragment.glsl";
+import intVertex from "./shaders/interaction/vertex.glsl";
 import renFragment from "./shaders/rendering/fragment.glsl";
+import renVertex from "./shaders/rendering/vertex.glsl";
+import simFragment from "./shaders/simulation/fragment.glsl";
+import simVertex from "./shaders/simulation/vertex.glsl";
 
 export default class App {
 	constructor() {
@@ -38,11 +41,15 @@ export default class App {
 		this.height = window.innerHeight;
 		this.mouse = new Vector2(-1, -1);
 		this.normalisedMouse = new Vector2(-1, -1);
+		this.angleChangeSpeed = 1;
+		this.angle = Math.PI / 2;
+		this.scale = 1;
+		this.textureIndex = 0;
+		this.textureTween = null;
 
 		this.createComponents();
-		this.resize();
-		window.addEventListener("resize", () => this.resize());
-		this.render();
+
+		// window.addEventListener("resize", () => this.resize());
 	}
 
 	createComponents() {
@@ -53,6 +60,14 @@ export default class App {
 		this.createRaycaster();
 		this.createObjects();
 		this.createOrb();
+		this.addListeners();
+		this.resize();
+		this.clock.start();
+		this.intervalId = setInterval(() => {
+			this.intMaterial.uniforms.center2.value.set(randomNumberInRange(0.5, 1), randomNumberInRange(0, 1));
+			setTimeout(() => this.intMaterial.uniforms.center2.value.set(-1, -1), 10);
+		}, 200);
+		this.raf = window.requestAnimationFrame(() => this.update());
 	}
 
 	createRenderer() {
@@ -68,7 +83,7 @@ export default class App {
 	createCamera() {
 		// camera
 		this.camera = new PerspectiveCamera(60, this.width / this.height, 0.1, 2);
-		this.camera.position.set(0, 0, 2.5);
+		this.camera.position.set(0, 0, 2.4);
 	}
 
 	createControls() {
@@ -90,7 +105,7 @@ export default class App {
 	}
 
 	createRaycaster() {
-		this.raycaster = new Raycaster();
+		this.raycaster = new CustomRayCaster();
 	}
 
 	createLights() {
@@ -166,8 +181,8 @@ export default class App {
 		});
 		this.renMaterial = new RawShaderMaterial({
 			side: DoubleSide,
-			vertexShader: intVertex,
-			fragmentShader: intFragment,
+			vertexShader: renVertex,
+			fragmentShader: renFragment,
 			uniforms: {
 				texture: {
 					value: null,
@@ -198,10 +213,26 @@ export default class App {
 	}
 
 	createOrb() {
+		// Get supported WebGL extensions
+		const supportedExtensions = this.renderer.getContext().getSupportedExtensions();
+
+		let textureType;
+
+		// Check if EXT_color_buffer_float extension is supported
+		if (supportedExtensions?.includes("EXT_color_buffer_float")) {
+			textureType = FloatType; // Assign texture type P
+		} else {
+			// Check if EXT_color_buffer_half_float extension is supported
+			if (!supportedExtensions?.includes("EXT_color_buffer_half_float")) {
+				throw new Error("Float textures not supported");
+			}
+			textureType = HalfFloatType; // Assign texture type U
+		}
 		this.fbos = [256, 128].map(
 			(e) =>
 				new WebGLRenderTarget(e, e, {
 					format: RGBAFormat,
+					type: textureType,
 					wrapS: RepeatWrapping,
 					wrapT: RepeatWrapping,
 				})
@@ -221,17 +252,110 @@ export default class App {
 		this.renMaterial.uniforms.texture.value = this.fbos[1].texture;
 		this.renMaterial.uniforms.size.value.set(this.fbos[1].width, this.fbos[1].height);
 		this.renMaterial.uniforms.eye.value.copy(this.camera.position).normalize();
-		this.scene.add(this.fboPlane);
+		this.fboScene.add(this.fboPlane);
 
 		this.sphere = new Mesh(new SphereGeometry(1, 156, 156, 0, Math.PI), this.renMaterial);
-		this.sphere.scale.setScalar(1);
+		this.sphere.scale.setScalar(this.scale);
 		this.scene.add(this.sphere);
+		this.setTexture();
 	}
 
+	setTexture() {
+		new TextureLoader().load("/texture.jpeg", (texture) => {
+			// Check if the matcapTexture value is set in the rendering material
+			if (this.renMaterial.uniforms.matcapTexture.value) {
+				// If matcapTexture is already set, switch between two textures
+				let n, i;
+				this.textureIndex = (this.textureIndex + 1) % 2;
+				if (this.textureIndex === 0) {
+					// If textureIndex is 0, set matcapTexture value to the loaded texture
+					this.renMaterial.uniforms.matcapTexture.value = texture;
+					n = 1; // Set texture indices for tweening
+					i = 0;
+				} else {
+					// If textureIndex is not 0, set matcapTexture2 value to the loaded texture
+					this.renMaterial.uniforms.matcapTexture2.value = texture;
+					n = 0; // Set texture indices for tweening
+					i = 1;
+				}
+				// Kill the current texture tween if it exists
+				if (this.textureTween !== null) {
+					this.textureTween.kill();
+				}
+				// Create a new tween to smoothly transition between textures
+				this.textureTween = new Tween({
+					from: n,
+					to: i,
+					duration: 0.3, // Duration of the tween animation
+					easing: "power3.out", // Easing function for the tween animation
+					onUpdate: (value) => {
+						// Update the textureMix uniform in the rendering material during tween animation
+						this.renMaterial.uniforms.textureMix.value = value;
+					},
+				});
+			} else {
+				// If matcapTexture value is not set, directly assign the loaded texture
+				this.renMaterial.uniforms.matcapTexture.value = texture;
+			}
+		});
+	}
+
+	update = () => {
+		const bounds = this.canvas.getBoundingClientRect();
+		this.normalisedMouse.set(
+			lerp(this.mouse.x - bounds.left, 0, bounds.width, -1, 1),
+			lerp(this.mouse.y - bounds.top, 0, bounds.height, 1, -1)
+		);
+		this.raf = window.requestAnimationFrame(this.update);
+
+		if (this.normalisedMouse.x !== -1 && this.normalisedMouse.y !== -1) {
+			this.raycaster.setFromCamera(this.normalisedMouse, this.camera);
+			const intersection = this.raycaster.intersectObject(this.sphere)[0];
+			if (intersection && intersection.uv) {
+				this.intMaterial.uniforms.center.value.copy(intersection.uv);
+			} else {
+				this.intMaterial.uniforms.center.value.set(-1, -1);
+			}
+		}
+
+		const elapsedTime = this.clock.getElapsedTime();
+		this.intMaterial.uniforms.time.value = elapsedTime;
+		// Tween.update();
+		this.angle += 0.01 * this.angleChangeSpeed;
+
+		const threshold = 0.5;
+		if (this.angle > Math.PI - threshold) {
+			this.angleChangeSpeed *= -1;
+			this.angle = Math.PI - threshold;
+		} else if (this.angle < threshold) {
+			this.angleChangeSpeed *= -1;
+			this.angle = threshold;
+		}
+
+		const lightX = 1 * Math.cos(this.angle);
+		const lightY = 1 * Math.sin(this.angle);
+		this.renMaterial.uniforms.lightDirection.value.set(lightX, lightY, 1);
+		this.renMaterial.uniforms.angle.value = this.angle;
+
+		this.render();
+	};
+
+	onMouseDown = () => {
+		this.intMaterial.uniforms.mouseDown.value = true;
+		window.addEventListener("mouseup", this.onMouseUp);
+	};
+
+	onMouseUp = () => {
+		this.intMaterial.uniforms.mouseDown.value = !1;
+		window.removeEventListener("mouseup", this.onMouseUp);
+	};
+
+	onMouseMove = (e) => this.mouse.set(e.clientX, e.clientY);
+
 	addListeners() {
-		window.addEventListener("resize", this.resize);
-		window.addEventListener("mousedown", this.onMouseDown);
-		window.addEventListener("mousemove", this.onMouseMove);
+		window.addEventListener("resize", () => this.resize());
+		window.addEventListener("mousedown", () => this.onMouseDown());
+		window.addEventListener("mousemove", (e) => this.onMouseMove(e));
 	}
 
 	resize() {
@@ -244,8 +368,13 @@ export default class App {
 	}
 
 	render() {
-		requestAnimationFrame(() => this.render());
+		this.fboPlane.material = this.intMaterial;
+		this.renderer.setRenderTarget(this.fbos[0]);
+		this.renderer.render(this.fboScene, this.camera);
+		this.fboPlane.material = this.simMaterial;
+		this.renderer.setRenderTarget(this.fbos[1]);
+		this.renderer.render(this.fboScene, this.camera);
+		this.renderer.setRenderTarget(null);
 		this.renderer.render(this.scene, this.camera);
-		this.controls.update();
 	}
 }
