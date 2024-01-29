@@ -1,4 +1,4 @@
-import { Tween } from "gsap/gsap-core";
+import { Tween } from 'gsap/gsap-core';
 import {
 	Clock,
 	DirectionalLight,
@@ -18,18 +18,18 @@ import {
 	Vector3,
 	WebGLRenderTarget,
 	WebGLRenderer,
-} from "three";
-import { OrbitControls } from "three/examples/jsm/Addons";
-import { lerp, randomNumberInRange } from "./helpers";
-import CustomRayCaster from "./modules/CustomRayCaster";
-import intFragment from "./shaders/interaction/fragment.glsl";
-import intVertex from "./shaders/interaction/vertex.glsl";
-import renFragment from "./shaders/rendering/fragment.glsl";
-import renVertex from "./shaders/rendering/vertex.glsl";
-import simFragment from "./shaders/simulation/fragment.glsl";
-import simVertex from "./shaders/simulation/vertex.glsl";
-import GUI from "lil-gui";
-import gsap from "gsap";
+} from 'three';
+import { OrbitControls } from 'three/examples/jsm/Addons';
+import { lerp, randomNumberInRange } from './helpers';
+import CustomRayCaster from './modules/CustomRayCaster';
+import intFragment from './shaders/interaction/fragment.glsl';
+import intVertex from './shaders/interaction/vertex.glsl';
+import renFragment from './shaders/rendering/fragment.glsl';
+import renVertex from './shaders/rendering/vertex.glsl';
+import simFragment from './shaders/simulation/fragment.glsl';
+import simVertex from './shaders/simulation/vertex.glsl';
+import GUI from 'lil-gui';
+import gsap from 'gsap';
 
 export default class App {
 	constructor() {
@@ -37,7 +37,7 @@ export default class App {
 	}
 
 	init() {
-		console.log("App initialised");
+		console.log('App initialised');
 		// viewport
 		this.width = window.innerWidth;
 		this.height = window.innerHeight;
@@ -49,8 +49,8 @@ export default class App {
 		this.textureIndex = 0;
 		this.textureTween = null;
 		this.config = {
-			background: "#f6f6f6",
-			orb: "colorful",
+			background: '#1d1d1d',
+			orb: 'colorful',
 		};
 
 		this.createComponents();
@@ -82,7 +82,7 @@ export default class App {
 		this.renderer.setClearColor(this.config.background, 1);
 		this.renderer.setSize(this.width, this.height);
 		this.renderer.setPixelRatio(window.devicePixelRatio || 1);
-		document.getElementById("app").appendChild(this.canvas);
+		document.getElementById('app').appendChild(this.canvas);
 	}
 
 	createCamera() {
@@ -202,12 +202,12 @@ export default class App {
 		let textureType;
 
 		// Check if EXT_color_buffer_float extension is supported
-		if (supportedExtensions?.includes("EXT_color_buffer_float")) {
+		if (supportedExtensions?.includes('EXT_color_buffer_float')) {
 			textureType = FloatType; // Assign texture type P
 		} else {
 			// Check if EXT_color_buffer_half_float extension is supported
-			if (!supportedExtensions?.includes("EXT_color_buffer_half_float")) {
-				throw new Error("Float textures not supported");
+			if (!supportedExtensions?.includes('EXT_color_buffer_half_float')) {
+				throw new Error('Float textures not supported');
 			}
 			textureType = HalfFloatType; // Assign texture type U
 		}
@@ -239,7 +239,7 @@ export default class App {
 
 		this.sphere = new Mesh(new SphereGeometry(1, 156, 156, 0, Math.PI), this.renMaterial);
 		this.sphere.scale.setScalar(Math.max(0.65, Math.min(1, this.width / 1920)));
-		this.setTexture(this.config.orb === "grayscale" ? "/texture-black.png" : "/texture.png");
+		this.setTexture(this.config.orb === 'grayscale' ? '/texture-black.png' : '/texture.png');
 		this.scene.add(this.sphere);
 	}
 
@@ -269,7 +269,7 @@ export default class App {
 				this.textureTween = gsap.fromTo(
 					this.renMaterial.uniforms.textureMix,
 					{ value: n },
-					{ value: i, duration: 0.5, ease: "power3.out" }
+					{ value: i, duration: 0.5, ease: 'power3.out' }
 				);
 			} else {
 				// If matcapTexture value is not set, directly assign the loaded texture
@@ -320,29 +320,29 @@ export default class App {
 
 	onMouseDown = () => {
 		this.intMaterial.uniforms.mouseDown.value = true;
-		window.addEventListener("mouseup", this.onMouseUp);
+		window.addEventListener('mouseup', this.onMouseUp);
 	};
 
 	onMouseUp = () => {
 		this.intMaterial.uniforms.mouseDown.value = !1;
-		window.removeEventListener("mouseup", this.onMouseUp);
+		window.removeEventListener('mouseup', this.onMouseUp);
 	};
 
 	onMouseMove = (e) => this.mouse.set(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
 
 	addListeners() {
-		window.addEventListener("resize", () => this.resize());
-		window.addEventListener("mousedown", () => this.onMouseDown());
+		window.addEventListener('resize', () => this.resize());
+		window.addEventListener('mousedown', () => this.onMouseDown());
 		// window.addEventListener("touchdown", () => this.onMouseDown());
-		window.addEventListener("mousemove", (e) => this.onMouseMove(e));
-		window.addEventListener("touchmove", (e) => this.onMouseMove(e));
+		window.addEventListener('mousemove', (e) => this.onMouseMove(e));
+		window.addEventListener('touchmove', (e) => this.onMouseMove(e));
 	}
 
 	removeListeners() {
-		window.removeEventListener("resize", this.resize);
-		window.removeEventListener("mousedown", this.onMouseDown);
-		window.removeEventListener("mouseup", this.onMouseUp);
-		window.removeEventListener("mousemove", this.onMouseMove);
+		window.removeEventListener('resize', this.resize);
+		window.removeEventListener('mousedown', this.onMouseDown);
+		window.removeEventListener('mouseup', this.onMouseUp);
+		window.removeEventListener('mousemove', this.onMouseMove);
 	}
 
 	resize() {
@@ -371,17 +371,17 @@ export default class App {
 		this.gui = new GUI();
 
 		this.gui
-			.addColor(this.config, "background")
+			.addColor(this.config, 'background')
 			.listen()
 			.onChange((v) => {
 				this.renderer.setClearColor(v, 1);
 			});
 
 		this.gui
-			.add(this.config, "orb", ["grayscale", "colorful"])
+			.add(this.config, 'orb', ['grayscale', 'colorful'])
 			.listen()
 			.onChange((v) => {
-				this.setTexture(this.config.orb === "grayscale" ? "/texture-black.png" : "/texture.png");
+				this.setTexture(this.config.orb === 'grayscale' ? '/texture-black.png' : '/texture.png');
 			});
 	}
 
