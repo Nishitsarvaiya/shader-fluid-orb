@@ -238,7 +238,7 @@ export default class App {
 		this.fboScene.add(this.fboPlane);
 
 		this.sphere = new Mesh(new SphereGeometry(1, 156, 156, 0, Math.PI), this.renMaterial);
-		this.sphere.scale.setScalar(this.scale);
+		this.sphere.scale.setScalar(Math.max(0.65, Math.min(1, this.width / 1920)));
 		this.setTexture(this.config.orb === "grayscale" ? "/texture-black.png" : "/texture.png");
 		this.scene.add(this.sphere);
 	}
@@ -328,12 +328,14 @@ export default class App {
 		window.removeEventListener("mouseup", this.onMouseUp);
 	};
 
-	onMouseMove = (e) => this.mouse.set(e.clientX, e.clientY);
+	onMouseMove = (e) => this.mouse.set(e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY);
 
 	addListeners() {
 		window.addEventListener("resize", () => this.resize());
 		window.addEventListener("mousedown", () => this.onMouseDown());
+		// window.addEventListener("touchdown", () => this.onMouseDown());
 		window.addEventListener("mousemove", (e) => this.onMouseMove(e));
+		window.addEventListener("touchmove", (e) => this.onMouseMove(e));
 	}
 
 	removeListeners() {
@@ -351,6 +353,7 @@ export default class App {
 		this.renderer.setSize(this.width, this.height);
 		this.camera.aspect = this.width / this.height;
 		this.camera.updateProjectionMatrix();
+		this.sphere.scale.setScalar(Math.max(0.65, Math.min(1, this.width / 1920)));
 	}
 
 	render() {
