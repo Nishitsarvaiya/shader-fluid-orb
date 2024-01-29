@@ -224,8 +224,8 @@ export default class App {
 		this.fboPlane = new Mesh(new PlaneGeometry(2, 2));
 		this.intMaterial.uniforms.center.value.set(-1, -1);
 		this.intMaterial.uniforms.center2.value.set(-1, -1);
-		this.intMaterial.uniforms.radius.value = 0.036;
-		this.intMaterial.uniforms.strength.value = 0.04;
+		this.intMaterial.uniforms.radius.value = 0.032;
+		this.intMaterial.uniforms.strength.value = 0.05;
 		this.intMaterial.uniforms.noiseSpeed.value = 0.1;
 		this.intMaterial.uniforms.noiseAmplitude.value = 0.005;
 		this.intMaterial.uniforms.noiseFrequency.value = 8;
@@ -237,7 +237,7 @@ export default class App {
 		this.renMaterial.uniforms.eye.value.copy(this.camera.position).normalize();
 		this.fboScene.add(this.fboPlane);
 
-		this.sphere = new Mesh(new SphereGeometry(1, 156, 156, 0, Math.PI), this.renMaterial);
+		this.sphere = new Mesh(new SphereGeometry(1, 100, 100, 0, Math.PI), this.renMaterial);
 		this.sphere.scale.setScalar(Math.max(0.65, Math.min(1, this.width / 1920)));
 		this.setTexture(this.config.orb === 'grayscale' ? '/texture-black.png' : '/texture.png');
 		this.scene.add(this.sphere);
