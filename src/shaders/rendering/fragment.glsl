@@ -54,6 +54,6 @@ void main() {
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
     vec3 specular = specularStrength * spec * lightColor;
     vec2 rotatedUv = rotateUV(vUv, angle);
-    vec3 color = mix(texture2D(matcapTexture, rotatedUv).rgb, texture2D(matcapTexture2, rotatedUv).rgb, textureMix);
-    gl_FragColor = vec4(blendOverlay(color, vec3(light)) + specular, 1.0);
+    // vec3 color = mix(texture2D(matcapTexture, rotatedUv).rgb, texture2D(matcapTexture2, rotatedUv).rgb, textureMix);
+    gl_FragColor = vec4(blendOverlay(vec3(0.086), vec3(light)) + specular, 1.0);
 }
